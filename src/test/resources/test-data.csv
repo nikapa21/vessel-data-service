@@ -1,0 +1,4 @@
+"vessel_code","datetime","latitude","longitude","power","fuel_consumption","actual_speed_overground","proposed_speed_overground","predicted_fuel_consumption"
+"3001","2023-06-01 00:00:00","10.2894458770752","-14.788875579834","0","0","0.039996","-0.189904262498021","0"
+"19310","2023-06-01 00:07:00","NULL","NULL","NULL","NULL","NULL","NULL","0"
+"19310","2023-06-01 00:07:00","NULL","NULL","NULL","NULL","NULL","0"

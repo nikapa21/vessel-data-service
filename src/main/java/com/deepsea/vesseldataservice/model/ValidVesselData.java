@@ -60,4 +60,17 @@ public class ValidVesselData {
     private double speedDifference;
 
     private double compliancePercentage;
+
+    public ValidVesselData(String vesselCode, String datetime, String latitude, String longitude, String power, String fuelConsumption, String actualSpeedOverground, String proposedSpeedOverground, String predictedFuelConsumption) {
+
+        this.vesselCode = vesselCode;
+        this.datetime = datetime;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.power = power;
+        this.fuelConsumption = fuelConsumption;
+        this.actualSpeedOverground = actualSpeedOverground;
+        this.proposedSpeedOverground = proposedSpeedOverground;
+        this.predictedFuelConsumption = predictedFuelConsumption;
+    }
 }

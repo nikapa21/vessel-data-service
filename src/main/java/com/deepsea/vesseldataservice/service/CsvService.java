@@ -96,7 +96,7 @@ public class CsvService {
         }
     }
 
-    private String getInvalidReason(ValidVesselData vesselData) {
+    String getInvalidReason(ValidVesselData vesselData) {
 
         List<String> reasons = new ArrayList<>();
 
@@ -136,7 +136,7 @@ public class CsvService {
         vesselData.setCompliancePercentage(calculateCompliancePercentage(vesselData));
     }
 
-    private double calculateCompliancePercentage(ValidVesselData vesselData) {
+    double calculateCompliancePercentage(ValidVesselData vesselData) {
 
         var speedDifference = vesselData.getSpeedDifference();
         var proposedSpeed = Double.parseDouble(vesselData.getProposedSpeedOverground());
@@ -149,7 +149,7 @@ public class CsvService {
         return Math.max(compliance, 0); // Ensure compliance is not negative
     }
 
-    protected InvalidVesselData mapToInvalidData(ValidVesselData validVesselData, String reason) {
+    private InvalidVesselData mapToInvalidData(ValidVesselData validVesselData, String reason) {
 
         var invalidData = new InvalidVesselData();
         invalidData.setVesselCode(validVesselData.getVesselCode());
@@ -165,7 +165,7 @@ public class CsvService {
         return invalidData;
     }
 
-    private ValidVesselData parseLineToValidVesselData(String line) {
+    ValidVesselData parseLineToValidVesselData(String line) {
 
         String[] fields = line.split(",");
 
