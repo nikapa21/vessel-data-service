@@ -1,6 +1,7 @@
 package com.deepsea.vesseldataservice.controller;
 
 import com.deepsea.vesseldataservice.exception.DataNotFoundException;
+import com.deepsea.vesseldataservice.model.ProblemGroup;
 import com.deepsea.vesseldataservice.model.ValidVesselData;
 import com.deepsea.vesseldataservice.response.InvalidReasonResponse;
 import com.deepsea.vesseldataservice.response.SpeedDifferenceResponse;
@@ -80,6 +81,21 @@ public class VesselController {
             return ResponseEntity.ok(vesselData);
         } catch (DataNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    @GetMapping("/{vesselCode}/problems")
+    public ResponseEntity<List<ProblemGroup>> getProblematicData(
+            @PathVariable String vesselCode,
+            @RequestParam(required = false, defaultValue = "all") String invalidReason,
+            @RequestParam(required = false, defaultValue = "60") String overrideIntervalValue,
+            @RequestParam(required = false, defaultValue = "10") String sizeThreshold) {
+
+        try {
+            var problemGroups = vesselDataService.identifyProblematicData(vesselCode, invalidReason, Long.valueOf(overrideIntervalValue), Integer.valueOf(sizeThreshold));
+            return ResponseEntity.ok(problemGroups);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }

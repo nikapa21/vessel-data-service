@@ -11,6 +11,8 @@ public interface InvalidVesselDataRepository extends JpaRepository<InvalidVessel
 
     List<InvalidVesselData> findByVesselCode(String vesselCode);
 
+    List<InvalidVesselData> findByVesselCodeAndInvalidReason(String vesselCode, String invalidReason);
+
     @Query("SELECT invalidReason, COUNT(invalidReason) FROM InvalidVesselData WHERE vesselCode = :vesselCode GROUP BY invalidReason ORDER BY COUNT(invalidReason) DESC")
     List<Object[]> findInvalidReasonsByVesselCode(String vesselCode);
 }
