@@ -1,17 +1,16 @@
 package com.deepsea.vesseldataservice.service;
 
+import static java.util.Objects.isNull;
+
 import com.deepsea.vesseldataservice.model.InvalidVesselData;
 import com.deepsea.vesseldataservice.model.ValidVesselData;
 import com.deepsea.vesseldataservice.repository.InvalidVesselDataRepository;
 import com.deepsea.vesseldataservice.repository.ValidVesselDataRepository;
-import com.opencsv.CSVReader;
-import com.opencsv.bean.CsvToBean;
-import com.opencsv.bean.CsvToBeanBuilder;
+import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,8 +19,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class CsvService {
 
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    Logger logger = LoggerFactory.getLogger("CsvService");
+    private static final Logger logger = LoggerFactory.getLogger(CsvService.class);
 
     private final ValidVesselDataRepository validVesselDataRepository;
     private final InvalidVesselDataRepository invalidVesselDataRepository;
@@ -32,70 +30,128 @@ public class CsvService {
         this.invalidVesselDataRepository = invalidVesselDataRepository;
     }
 
-    public void readCsv() throws IOException {
+    public void readCsvInChunks() {
 
-        var csvFilePath = System.getProperty("user.dir") + "\\src\\main\\resources\\static\\vessel_data_min.csv";
-        logger.info("Reading CSV file. Path is: " + csvFilePath);
+        var csvFilePath = System.getProperty("user.dir") + "/src/main/resources/static/vessel_data.csv";
+        logger.info("Reading CSV file in chunks. Path is: {}", csvFilePath);
 
-        Charset charset = StandardCharsets.UTF_8;
+        try (var reader = new BufferedReader(new FileReader(csvFilePath, StandardCharsets.UTF_8))) {
 
-        try (CSVReader reader = new CSVReader(new FileReader(csvFilePath, charset))) {
-            CsvToBean<ValidVesselData> csvToBean = new CsvToBeanBuilder<ValidVesselData>(reader)
-                    .withType(ValidVesselData.class)
-                    .build();
+            String line;
+            var validDataInsertedCounter = 0;
+            var invalidDataInsertedCounter = 0;
+            int batchSize = 10000; // Adjust the batch size as needed
+            List<ValidVesselData> validDataList = new ArrayList<>();
+            List<InvalidVesselData> invalidDataList = new ArrayList<>();
 
-            List<ValidVesselData> beans = csvToBean.parse();
+            while ((line = reader.readLine()) != null) {
 
-            for (ValidVesselData validVesselData : beans) {
-                if (isValidData(validVesselData)) {
-                    validVesselDataRepository.save(validVesselData);
+                line = line.replace("\"", ""); //Remove all double quotes from strings
+
+                // Parse the line into a ValidVesselData object
+                var data = parseLineToValidVesselData(line);
+
+                if (isNull(data)) {
+                    continue;
+                }
+
+                var invalidReason = getInvalidReason(data);
+                if (isNull(invalidReason)) {
+                    calculateNewMetrics(data);
+                    validDataList.add(data);
+                    validDataInsertedCounter++;
                 } else {
-                    invalidVesselDataRepository.save(mapToInvalidData(validVesselData));
+                    invalidDataList.add(mapToInvalidData(data, invalidReason));
+                    invalidDataInsertedCounter++;
+                }
+
+                if (validDataList.size() >= batchSize) {
+                    validVesselDataRepository.saveAll(validDataList);
+                    logger.info("Inserted {} valid data", validDataInsertedCounter);
+                    validDataList = new ArrayList<>();
+                }
+
+                if (invalidDataList.size() >= batchSize) {
+                    invalidVesselDataRepository.saveAll(invalidDataList);
+                    logger.info("Inserted {} invalid data", invalidDataInsertedCounter);
+                    invalidDataList = new ArrayList<>();
                 }
             }
-            logger.info("done.. ");
+
+            // Save any remaining data
+            if (!validDataList.isEmpty()) {
+                validVesselDataRepository.saveAll(validDataList);
+                logger.info("Flush the buffer with the last {} valid data", validDataList.size());
+            }
+            if (!invalidDataList.isEmpty()) {
+                invalidVesselDataRepository.saveAll(invalidDataList);
+                logger.info("Flush the buffer with the last {} invalid data", invalidDataList.size());
+            }
+
+            logger.info("Data processing and insertion completed.");
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Error reading CSV file: {}", e.getMessage(), e);
+        } catch (Exception e) {
+            logger.error("Unexpected error during CSV processing: {}", e.getMessage(), e);
         }
     }
 
-    private boolean isValidData(ValidVesselData vesselData) {
+    private String getInvalidReason(ValidVesselData vesselData) {
+
+        List<String> reasons = new ArrayList<>();
 
         try {
-            // Validate latitude and longitude after parsing to double
-            Double latitude = Double.parseDouble(vesselData.getLatitude());
-            Double longitude = Double.parseDouble(vesselData.getLongitude());
+            var latitude = Double.parseDouble(vesselData.getLatitude());
+            var longitude = Double.parseDouble(vesselData.getLongitude());
             if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-                return false;
+                reasons.add("Invalid latitude or longitude");
             }
 
-            // Validate numeric values (ensure they are not below zero)
-            Double power = Double.parseDouble(vesselData.getPower());
-            Double fuelConsumption = Double.parseDouble(vesselData.getFuelConsumption());
-            Double actualSpeedOverground = Double.parseDouble(vesselData.getActualSpeedOverground());
-            Double proposedSpeedOverground = Double.parseDouble(vesselData.getProposedSpeedOverground());
-            Double predictedFuelConsumption = Double.parseDouble(vesselData.getPredictedFuelConsumption());
+            var power = Double.parseDouble(vesselData.getPower());
+            var fuelConsumption = Double.parseDouble(vesselData.getFuelConsumption());
+            var actualSpeedOverground = Double.parseDouble(vesselData.getActualSpeedOverground());
+            var proposedSpeedOverground = Double.parseDouble(vesselData.getProposedSpeedOverground());
+            var predictedFuelConsumption = Double.parseDouble(vesselData.getPredictedFuelConsumption());
 
             if (power < 0 || fuelConsumption < 0 || actualSpeedOverground < 0 || proposedSpeedOverground < 0 || predictedFuelConsumption < 0) {
-                return false;
+                reasons.add("Negative values");
             }
 
-            // Add additional validation checks, such as for outliers
-            // Example: check if the difference between actual and proposed speed is too large
             if (Math.abs(actualSpeedOverground - proposedSpeedOverground) > 10) {
-                return false;
+                reasons.add("Outliers");
             }
         } catch (NumberFormatException e) {
-            // If parsing fails, consider the data invalid
-            return false;
+            reasons.add("Number format exception");
         }
 
-        return true;
+        return reasons.isEmpty() ? null : String.join(", ", reasons);
     }
 
-    private InvalidVesselData mapToInvalidData(ValidVesselData validVesselData) {
-        // Map invalid rows to InvalidVesselData object
-        InvalidVesselData invalidData = new InvalidVesselData();
+    void calculateNewMetrics(ValidVesselData vesselData) {
+
+        var actualSpeed = Double.parseDouble(vesselData.getActualSpeedOverground());
+        var proposedSpeed = Double.parseDouble(vesselData.getProposedSpeedOverground());
+        var speedDifference = actualSpeed - proposedSpeed;
+        vesselData.setSpeedDifference(speedDifference);
+        vesselData.setCompliancePercentage(calculateCompliancePercentage(vesselData));
+    }
+
+    private double calculateCompliancePercentage(ValidVesselData vesselData) {
+
+        var speedDifference = vesselData.getSpeedDifference();
+        var proposedSpeed = Double.parseDouble(vesselData.getProposedSpeedOverground());
+
+        if (proposedSpeed == 0) {
+            return 0; // Avoid division by zero
+        }
+
+        var compliance = 100 - (Math.abs(speedDifference) / proposedSpeed) * 100;
+        return Math.max(compliance, 0); // Ensure compliance is not negative
+    }
+
+    protected InvalidVesselData mapToInvalidData(ValidVesselData validVesselData, String reason) {
+
+        var invalidData = new InvalidVesselData();
         invalidData.setVesselCode(validVesselData.getVesselCode());
         invalidData.setDatetime(validVesselData.getDatetime());
         invalidData.setLatitude(validVesselData.getLatitude());
@@ -105,6 +161,19 @@ public class CsvService {
         invalidData.setActualSpeedOverground(validVesselData.getActualSpeedOverground());
         invalidData.setProposedSpeedOverground(validVesselData.getProposedSpeedOverground());
         invalidData.setPredictedFuelConsumption(validVesselData.getPredictedFuelConsumption());
+        invalidData.setInvalidReason(reason);
         return invalidData;
+    }
+
+    private ValidVesselData parseLineToValidVesselData(String line) {
+
+        String[] fields = line.split(",");
+
+        // Handle cases where the line might not have the expected number of fields
+        if (fields.length != 9) {
+            logger.warn("Skipping line due to wrong number fields: {}", line);
+            return null;
+        }
+        return new ValidVesselData(fields);
     }
 }

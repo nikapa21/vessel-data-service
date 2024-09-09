@@ -5,7 +5,6 @@ import com.deepsea.vesseldataservice.model.ValidVesselData;
 import com.deepsea.vesseldataservice.repository.InvalidVesselDataRepository;
 import com.deepsea.vesseldataservice.repository.ValidVesselDataRepository;
 import com.deepsea.vesseldataservice.service.CsvService;
-import java.io.IOException;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,11 +26,7 @@ public class VesselController {
     @GetMapping("/hello")
     public String sayHello() {
 
-        try {
-            csvService.readCsv();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        csvService.readCsvInChunks();
         return "Hello!";
     }
 
