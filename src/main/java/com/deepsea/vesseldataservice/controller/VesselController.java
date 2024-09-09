@@ -9,6 +9,8 @@ import com.deepsea.vesseldataservice.service.CsvService;
 import com.deepsea.vesseldataservice.service.VesselDataService;
 import jakarta.validation.constraints.Pattern;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,20 +32,28 @@ public class VesselController {
         this.vesselDataService = vesselDataService;
     }
 
-    @GetMapping("/hello")
-    public String sayHello() {
+    @GetMapping("/processFile")
+    public ResponseEntity<String> processFile() {
 
         csvService.readCsvInChunks();
-        return "Data processing and insertion completed!";
+        return ResponseEntity.ok("Data processing and insertion completed!");
     }
 
     @GetMapping("/{vesselCode}/speed-difference")
     public ResponseEntity<List<SpeedDifferenceResponse>> getSpeedDifference(
             @PathVariable String vesselCode,
-            @RequestParam(required = false) @Pattern(regexp = "^-?\\d+(\\.\\d+)?$", message = "Invalid latitude format") String latitude,
-            @RequestParam(required = false) @Pattern(regexp = "^-?\\d+(\\.\\d+)?$", message = "Invalid longitude format") String longitude) {
+            @RequestParam @Pattern(regexp = "^-?\\d+(\\.\\d+)?$", message = "Invalid latitude format") String latitude,
+            @RequestParam @Pattern(regexp = "^-?\\d+(\\.\\d+)?$", message = "Invalid longitude format") String longitude) {
 
         List<SpeedDifferenceResponse> speedDifferences = vesselDataService.calculateSpeedDifference(vesselCode, latitude, longitude);
+        return ResponseEntity.ok(speedDifferences);
+    }
+
+    @GetMapping("/{vesselCode}/speed-differences")
+    public ResponseEntity<Page<SpeedDifferenceResponse>> getSpeedDifferences(
+            @PathVariable String vesselCode, Pageable pageable) {
+
+        Page<SpeedDifferenceResponse> speedDifferences = vesselDataService.calculateSpeedDifferences(vesselCode, pageable);
         return ResponseEntity.ok(speedDifferences);
     }
 

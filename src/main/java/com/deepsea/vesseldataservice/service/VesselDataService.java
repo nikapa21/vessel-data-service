@@ -17,6 +17,8 @@ import java.util.Comparator;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -55,6 +57,17 @@ public class VesselDataService {
                         data.getLongitude(),
                         data.getSpeedDifference()))
                 .toList();
+    }
+
+    public Page<SpeedDifferenceResponse> calculateSpeedDifferences(String vesselCode, Pageable pageable) {
+
+        Page<ValidVesselData> page = validVesselDataRepository.findByVesselCode(vesselCode, pageable);
+
+        return page.map(data -> new SpeedDifferenceResponse(
+                data.getLatitude(),
+                data.getLongitude(),
+                data.getSpeedDifference())
+        );
     }
 
     public List<InvalidReasonResponse> getInvalidReasonsByVesselCode(String vesselCode) {
