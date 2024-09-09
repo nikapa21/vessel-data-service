@@ -23,7 +23,7 @@ public class CsvService {
 
     private static final Logger logger = LoggerFactory.getLogger(CsvService.class);
 
-    @Value("classpath:static/vessel_data.csv")
+    @Value("classpath:${csv.file.name}")
     Resource csvFileResource;
 
     @Value("${csv.file.process.batch.size:100000}")

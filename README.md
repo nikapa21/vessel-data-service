@@ -10,7 +10,6 @@ The Vessel Data Service is a Spring Boot application designed to manage and proc
 - [Setup and Usage](#setup-and-usage)
 - [Dependencies](#dependencies)
 - [Assumptions](#assumptions)
-- [License](#license)
 
 ## Prerequisites
 
