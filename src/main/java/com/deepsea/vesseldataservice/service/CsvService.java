@@ -14,12 +14,20 @@ import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 @Service
 public class CsvService {
 
     private static final Logger logger = LoggerFactory.getLogger(CsvService.class);
+
+    @Value("classpath:static/vessel_data.csv")
+    Resource csvFileResource;
+
+    @Value("${csv.file.process.batch.size:100000}")
+    private Integer batchSize;
 
     private final ValidVesselDataRepository validVesselDataRepository;
     private final InvalidVesselDataRepository invalidVesselDataRepository;
@@ -32,21 +40,20 @@ public class CsvService {
 
     public void readCsvInChunks() {
 
-        var csvFilePath = System.getProperty("user.dir") + "/src/main/resources/static/vessel_data.csv";
-        logger.info("Reading CSV file in chunks. Path is: {}", csvFilePath);
+        logger.info("Reading CSV file in chunks of {}. Path is: {}", batchSize, csvFileResource);
 
-        try (var reader = new BufferedReader(new FileReader(csvFilePath, StandardCharsets.UTF_8))) {
+        try (var reader = new BufferedReader(new FileReader(csvFileResource.getFile(), StandardCharsets.UTF_8))) {
 
             String line;
-            var validDataInsertedCounter = 0;
-            var invalidDataInsertedCounter = 0;
-            int batchSize = 10000; // Adjust the batch size as needed
+            var validDataInsertedCounter = 0; // Use counters to be logged and keep track of the chunks insertions - Valid counter
+            var invalidDataInsertedCounter = 0; // Invalid counter
+
             List<ValidVesselData> validDataList = new ArrayList<>();
             List<InvalidVesselData> invalidDataList = new ArrayList<>();
 
             while ((line = reader.readLine()) != null) {
 
-                line = line.replace("\"", ""); //Remove all double quotes from strings
+                line = line.replace("\"", ""); // Remove all double quotes from strings
 
                 // Parse the line into a ValidVesselData object
                 var data = parseLineToValidVesselData(line);
@@ -56,11 +63,12 @@ public class CsvService {
                 }
 
                 var invalidReason = getInvalidReason(data);
-                if (isNull(invalidReason)) {
+
+                if (isNull(invalidReason)) { // Data are valid
                     calculateNewMetrics(data);
                     validDataList.add(data);
                     validDataInsertedCounter++;
-                } else {
+                } else { // Data are invalid
                     invalidDataList.add(mapToInvalidData(data, invalidReason));
                     invalidDataInsertedCounter++;
                 }
@@ -98,13 +106,11 @@ public class CsvService {
 
     String getInvalidReason(ValidVesselData vesselData) {
 
-        List<String> reasons = new ArrayList<>();
-
         try {
             var latitude = Double.parseDouble(vesselData.getLatitude());
             var longitude = Double.parseDouble(vesselData.getLongitude());
             if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-                reasons.add("Invalid latitude or longitude");
+                return "Invalid latitude or longitude";
             }
 
             var power = Double.parseDouble(vesselData.getPower());
@@ -114,17 +120,16 @@ public class CsvService {
             var predictedFuelConsumption = Double.parseDouble(vesselData.getPredictedFuelConsumption());
 
             if (power < 0 || fuelConsumption < 0 || actualSpeedOverground < 0 || proposedSpeedOverground < 0 || predictedFuelConsumption < 0) {
-                reasons.add("Negative values");
+                return "Negative values";
             }
 
-            if (Math.abs(actualSpeedOverground - proposedSpeedOverground) > 10) {
-                reasons.add("Outliers");
+            if (actualSpeedOverground > 20 || proposedSpeedOverground > 20) {
+                return "Outliers";
             }
         } catch (NumberFormatException e) {
-            reasons.add("Number format exception");
+            return "Number format exception"; // Catch null values
         }
-
-        return reasons.isEmpty() ? null : String.join(", ", reasons);
+        return null; // Returns null, but is handled immediately
     }
 
     void calculateNewMetrics(ValidVesselData vesselData) {
@@ -172,7 +177,7 @@ public class CsvService {
         // Handle cases where the line might not have the expected number of fields
         if (fields.length != 9) {
             logger.warn("Skipping line due to wrong number fields: {}", line);
-            return null;
+            return null; // Returns null, but is handled immediately
         }
         return new ValidVesselData(fields);
     }
