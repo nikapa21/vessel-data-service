@@ -41,36 +41,37 @@ public class CsvService {
     public void readCsvInChunks() {
 
         logger.info("Reading CSV file in chunks of {}. Path is: {}", batchSize, csvFileResource);
+        logger.debug("Starting to read CSV file: {}", csvFileResource.getFilename());
 
         try (var reader = new BufferedReader(new FileReader(csvFileResource.getFile(), StandardCharsets.UTF_8))) {
-
             String line;
-            var validDataInsertedCounter = 0; // Use counters to be logged and keep track of the chunks insertions - Valid counter
+            var validDataInsertedCounter = 0; // Valid counter
             var invalidDataInsertedCounter = 0; // Invalid counter
 
             List<ValidVesselData> validDataList = new ArrayList<>();
             List<InvalidVesselData> invalidDataList = new ArrayList<>();
 
             while ((line = reader.readLine()) != null) {
-
+                logger.debug("Reading line: {}", line); // Log the line being processed
                 line = line.replace("\"", ""); // Remove all double quotes from strings
 
                 // Parse the line into a ValidVesselData object
                 var data = parseLineToValidVesselData(line);
-
                 if (isNull(data)) {
+                    logger.debug("Parsed data is null, skipping line: {}", line);
                     continue;
                 }
 
                 var invalidReason = getInvalidReason(data);
-
                 if (isNull(invalidReason)) { // Data are valid
                     calculateNewMetrics(data);
                     validDataList.add(data);
                     validDataInsertedCounter++;
+                    logger.debug("Valid data added: {}", data); // Log valid data
                 } else { // Data are invalid
                     invalidDataList.add(mapToInvalidData(data, invalidReason));
                     invalidDataInsertedCounter++;
+                    logger.debug("Invalid data added: {} due to reason: {}", data, invalidReason); // Log invalid data
                 }
 
                 if (validDataList.size() >= batchSize) {
