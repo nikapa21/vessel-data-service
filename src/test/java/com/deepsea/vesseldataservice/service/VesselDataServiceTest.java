@@ -2,6 +2,7 @@ package com.deepsea.vesseldataservice.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import com.deepsea.vesseldataservice.exception.DataNotFoundException;
@@ -121,5 +122,14 @@ class VesselDataServiceTest {
 
         // Call the method and expect an exception
         assertThrows(DataNotFoundException.class, () -> vesselDataService.getInvalidReasonsByVesselCode("1"));
+    }
+
+    @Test
+    void testBelongsToSameGroup() {
+
+        String datetime = "2024-09-09 12:00:00";
+        String currentDateTime = "2024-09-09 12:05:00"; // 5 minutes later
+
+        assertTrue(vesselDataService.belongsToSameGroup(datetime, currentDateTime));
     }
 }

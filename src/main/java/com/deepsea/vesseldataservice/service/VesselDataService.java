@@ -1,5 +1,6 @@
 package com.deepsea.vesseldataservice.service;
 
+import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 
 import com.deepsea.vesseldataservice.exception.DataNotFoundException;
@@ -96,7 +97,12 @@ public class VesselDataService {
 
     public double calculateOverallCompliance(String vesselCode) {
 
-        return validVesselDataRepository.calculateOverallComplianceByVesselCode(vesselCode);
+        var overallCompliance = validVesselDataRepository.calculateOverallComplianceByVesselCode(vesselCode);
+
+        if (isNull(overallCompliance)) {
+            throw new DataNotFoundException("No data found for vessel code: " + vesselCode);
+        }
+        return overallCompliance;
     }
 
     public List<ValidVesselData> getVesselDataForPeriod(String vesselCode, String startDate, String endDate) {
@@ -123,6 +129,10 @@ public class VesselDataService {
             invalidDataList = invalidVesselDataRepository.findByVesselCode(vesselCode);
         } else {
             invalidDataList = invalidVesselDataRepository.findByVesselCodeAndInvalidReason(vesselCode, invalidReason);
+        }
+
+        if (invalidDataList.isEmpty()) {
+            throw new DataNotFoundException("No invalid data found for vessel code: " + vesselCode);
         }
 
         //identify groups of consecutive waypoints (not sorted)
@@ -172,7 +182,7 @@ public class VesselDataService {
         return result;
     }
 
-    private boolean belongsToSameGroup(String datetime, String currentDateTime) {
+    boolean belongsToSameGroup(String datetime, String currentDateTime) {
 
         //convert datetime to java dates
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");

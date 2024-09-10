@@ -1,6 +1,5 @@
 package com.deepsea.vesseldataservice.controller;
 
-import com.deepsea.vesseldataservice.exception.DataNotFoundException;
 import com.deepsea.vesseldataservice.model.ProblemGroup;
 import com.deepsea.vesseldataservice.model.ValidVesselData;
 import com.deepsea.vesseldataservice.response.InvalidReasonResponse;
@@ -11,14 +10,15 @@ import jakarta.validation.constraints.Pattern;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Validated
 @RestController
 @RequestMapping("/api/vessels")
 public class VesselController {
@@ -70,14 +70,8 @@ public class VesselController {
             @RequestParam String vesselCode1,
             @RequestParam String vesselCode2) {
 
-        try {
-            var result = vesselDataService.compareVesselCompliance(vesselCode1, vesselCode2);
-            return ResponseEntity.ok(result);
-        } catch (DataNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error comparing vessel compliance.");
-        }
+        String result = vesselDataService.compareVesselCompliance(vesselCode1, vesselCode2);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/{vesselCode}/data")
@@ -86,14 +80,8 @@ public class VesselController {
             @RequestParam String startDate,
             @RequestParam String endDate) {
 
-        try {
-            var vesselData = vesselDataService.getVesselDataForPeriod(vesselCode, startDate, endDate);
-            return ResponseEntity.ok(vesselData);
-        } catch (DataNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
+        var vesselData = vesselDataService.getVesselDataForPeriod(vesselCode, startDate, endDate);
+        return ResponseEntity.ok(vesselData);
     }
 
     @GetMapping("/{vesselCode}/problems")
@@ -103,11 +91,7 @@ public class VesselController {
             @RequestParam(required = false, defaultValue = "60") String overrideIntervalValue,
             @RequestParam(required = false, defaultValue = "10") String sizeThreshold) {
 
-        try {
-            var problemGroups = vesselDataService.identifyProblematicData(vesselCode, invalidReason, Long.valueOf(overrideIntervalValue), Integer.valueOf(sizeThreshold));
-            return ResponseEntity.ok(problemGroups);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
+        var problemGroups = vesselDataService.identifyProblematicData(vesselCode, invalidReason, Long.valueOf(overrideIntervalValue), Integer.valueOf(sizeThreshold));
+        return ResponseEntity.ok(problemGroups);
     }
 }
